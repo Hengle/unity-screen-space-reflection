@@ -27,11 +27,18 @@
 		float4x4 _InvViewProj;
 		float4x4 _ViewProj;
 
+		float noise(float2 seed)
+        {
+            return frac(sin(dot(seed.xy, float2(12.9898, 78.233))) * 43758.5453);
+        }
+
 		float ComputeDepth(float4 clippos)
         {
         #if defined(SHADER_TARGET_GLSL) || defined(SHADER_API_GLES) || defined(SHADER_API_GLES3)
+		    //return 1.0;
             return (clippos.z / clippos.w) * 0.5 + 0.5;
         #else
+		    //return 1.0;
             return clippos.z / clippos.w;
         #endif
         }
@@ -62,7 +69,7 @@
             float4 col = tex2D(_MainTex, uv);
         
             float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
-            if (depth >= 1.0) return col;
+            if (depth <= 0.0) return col;
         
             float2 spos = 2.0 * uv - 1.0;
             float4 pos = mul(_InvViewProj, float4(spos, depth, 1.0));
@@ -74,26 +81,46 @@
             float3 refDir = normalize(camDir - 2.0 * dot(camDir, normal) * normal);
 
 
-			int maxRayNum = 100;
-            float maxLength = _RaytraceMaxLength;
-            float3 step = maxLength / maxRayNum * refDir;
-            float maxThickness = _RaytraceMaxThickness / maxRayNum;
+			int maxRayNum = 50;
+			float maxLength = 2.0;
+			float  maxThickness = 0.3 / maxRayNum;
+            float3 step = 2.0 / maxRayNum * refDir;
+
+			//col = float4(1.0, 0.0, 0.0, 1.0);
             
             for (int n = 1; n <= maxRayNum; ++n) {
-                float3 rayPos = pos + step * n;
+                float3 ray = (n + noise(uv + _Time.x)) * step;
+                float3 rayPos = pos + ray;
                 float4 vpPos = mul(_ViewProj, float4(rayPos, 1.0));
                 float2 rayUv = vpPos.xy / vpPos.w * 0.5 + 0.5;
+
+				if (max(abs(rayUv.x - 0.5), abs(rayUv.y - 0.5)) > 0.5) break;
+
                 float rayDepth = ComputeDepth(vpPos);
                 float gbufferDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUv);
-                if (rayDepth - gbufferDepth > 0) {
-                    col += tex2D(_MainTex, rayUv) * 0.2;
+                if (rayDepth - gbufferDepth < 0 && rayDepth - gbufferDepth > - maxThickness) {
+				    float sign = -1.0;
+                    for (int m = 1; m <= 4; ++m) {
+                        rayPos += sign * pow(0.5, m) * step;
+                        vpPos = mul(_ViewProj, float4(rayPos, 1.0));
+                        rayUv = vpPos.xy / vpPos.w * 0.5 + 0.5;
+                        rayDepth = ComputeDepth(vpPos);
+                        gbufferDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUv);
+                        sign = rayDepth - gbufferDepth < 0 ? -1 : 1;
+                    }
+                    float a = 0.2 * pow(min(1.0, (maxLength / 2) / length(ray)), 2.0);
+                    col = col * (1 - a) + tex2D(_MainTex, rayUv) * a;
                     break;
                 }
             }
 
 			//return tex2D(_CameraGBufferTexture2, uv);
+			//return depth;
 			//return pos;
             //return float4(refDir, 1.0);
+			float d = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+			//return tex2D(_CameraDepthTexture, uv) * 5.0;
+			//return float4(d * 5.0, 0.0, 0.0, 1.0);
 			return col;
         }
 		ENDCG
