@@ -125,7 +125,7 @@ GameObject:
   - component: {fileID: 223949511}
   - component: {fileID: 223949510}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Cube01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -248,7 +248,7 @@ Camera:
     height: 1
   near clip plane: 1
   far clip plane: 100
-  field of view: 25.1
+  field of view: 25
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -538,7 +538,7 @@ GameObject:
   - component: {fileID: 1602025929}
   - component: {fileID: 1602025928}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Cube02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -604,7 +604,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1602025927}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.38, y: -0.36, z: -1.309}
+  m_LocalPosition: {x: -2.785, y: -0.36, z: -1.309}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}

@@ -24,6 +24,9 @@
 		sampler2D _MainTex;
 		sampler2D _CameraDepthTexture;
 		sampler2D _CameraGBufferTexture2;
+		sampler2D _PreAccumulationTexture;
+		sampler2D _ReflectionTexture;
+		sampler2D _AccumulationTexture;
 		float4x4 _InvViewProj;
 		float4x4 _ViewProj;
 
@@ -35,7 +38,6 @@
 		float ComputeDepth(float4 clippos)
         {
         #if defined(SHADER_TARGET_GLSL) || defined(SHADER_API_GLES) || defined(SHADER_API_GLES3)
-		    //return 1.0;
             return (clippos.z / clippos.w) * 0.5 + 0.5;
         #else
 		    //return 1.0;
@@ -62,8 +64,16 @@
 			o.screenPos = ComputeScreenPos(o.vertex);
 			return o;
 		}
+
+		v2f vert_fullscreen(appdata v)
+        {
+            v2f o;
+            o.vertex = v.vertex;
+            o.screenPos = ComputeScreenPos(o.vertex);
+            return o;
+        }
 		
-		float4 frag(v2f i) : SV_Target
+		float4 reflection(v2f i) : SV_Target
         {
             float2 uv = i.screenPos.xy / i.screenPos.w;
             float4 col = tex2D(_MainTex, uv);
@@ -86,8 +96,6 @@
 			float  maxThickness = 0.3 / maxRayNum;
             float3 step = 2.0 / maxRayNum * refDir;
 
-			//col = float4(1.0, 0.0, 0.0, 1.0);
-            
             for (int n = 1; n <= maxRayNum; ++n) {
                 float3 ray = (n + noise(uv + _Time.x)) * step;
                 float3 rayPos = pos + ray;
@@ -113,23 +121,50 @@
                     break;
                 }
             }
-
-			//return tex2D(_CameraGBufferTexture2, uv);
-			//return depth;
-			//return pos;
-            //return float4(refDir, 1.0);
-			float d = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
-			//return tex2D(_CameraDepthTexture, uv) * 5.0;
-			//return float4(d * 5.0, 0.0, 0.0, 1.0);
 			return col;
         }
+
+		float4 accumulation(v2f i) : SV_Target
+        {
+            float2 uv = i.screenPos.xy / i.screenPos.w;
+            float4 base = tex2D(_PreAccumulationTexture, uv);
+            float4 reflection = tex2D(_ReflectionTexture, uv);
+            float blend = 0.2;
+            return lerp(base, reflection, blend);
+        }
+        
+        float4 composition(v2f i) : SV_Target
+        {
+            float2 uv = i.screenPos.xy / i.screenPos.w;
+            float4 base = tex2D(_MainTex, uv);
+            float4 reflection = tex2D(_AccumulationTexture, uv);
+            float a = reflection.a;
+            return lerp(base, reflection, a);
+        }
+
 		ENDCG
 				
 		Pass
 		{
 			CGPROGRAM
 			#pragma vertex vert
-			#pragma fragment frag
+			#pragma fragment reflection
+			ENDCG
+		}
+
+		Pass
+		{
+		    CGPROGRAM
+			#pragma vertex vert_fullscreen
+			#pragma fragment accumulation
+			ENDCG
+		}
+
+		Pass
+		{
+		    CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment composition
 			ENDCG
 		}
 	}
