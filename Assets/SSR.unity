@@ -209,6 +209,8 @@ GameObject:
   - component: {fileID: 400261390}
   - component: {fileID: 400261389}
   - component: {fileID: 400261393}
+  - component: {fileID: 400261394}
+  - component: {fileID: 400261395}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -291,6 +293,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shader: {fileID: 4800000, guid: f59b4cb2ed20da245bfe0b23680b6774, type: 3}
+  blurOffset: {x: 1, y: 1}
+  blurNum: 1
+  resolution: 1
+--- !u!114 &400261394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 400261388}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0b406a681c7bea4cb1a236a82d88248, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  speedXY: 3
+  speedXZ: 3
+  speedForward: 3
+  angleSpeed: 3
+--- !u!114 &400261395
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 400261388}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 478a2083ad114a07d000fbfb8d76c639, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shader: {fileID: 4800000, guid: e9ba2083ad114a07d000fbfb8d76c639, type: 3}
+  blurAmount: 0.8
+  extraBlur: 0
 --- !u!1 &718727485
 GameObject:
   m_ObjectHideFlags: 0
@@ -302,7 +336,7 @@ GameObject:
   - component: {fileID: 718727488}
   - component: {fileID: 718727487}
   - component: {fileID: 718727486}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -520,7 +554,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1539535547}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.4, y: -0.53, z: -1.64}
+  m_LocalPosition: {x: -0.4, y: -0.53, z: -1.119}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}

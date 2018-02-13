@@ -21,6 +21,10 @@
         #define _ReflectionEnhancer       _Params1.z
         #define _AccumulationBlendRatio   _Params1.w
 
+		float4 _BlurParams;
+        #define _BlurOffset _BlurParams.xy
+        #define _BlurNum (int)(_BlurParams.z)
+
 		sampler2D _MainTex;
 		sampler2D _CameraDepthTexture;
 		sampler2D _CameraGBufferTexture2;
@@ -29,6 +33,7 @@
 		sampler2D _AccumulationTexture;
 		float4x4 _InvViewProj;
 		float4x4 _ViewProj;
+		float4 _ReflectionTexture_TexelSize;
 
 		float noise(float2 seed)
         {
@@ -97,7 +102,7 @@
             float3 step = 2.0 / maxRayNum * refDir;
 
             for (int n = 1; n <= maxRayNum; ++n) {
-                float3 ray = (n + noise(uv + _Time.x)) * step;
+                float3 ray = (n + noise(uv + _Time.x) * 0.5) * step;
                 float3 rayPos = pos + ray;
                 float4 vpPos = mul(_ViewProj, float4(rayPos, 1.0));
                 float2 rayUv = vpPos.xy / vpPos.w * 0.5 + 0.5;
@@ -122,6 +127,18 @@
                 }
             }
 			return col;
+        }
+
+		float4 blur(v2f i) : SV_Target
+        {
+            float2 uv = i.screenPos.xy / i.screenPos.w;
+            float2 size = _ReflectionTexture_TexelSize;
+        
+            float4 col = 0.0;
+            for (int n = -_BlurNum; n <= _BlurNum; ++n) {
+                col += tex2D(_ReflectionTexture, uv + _BlurOffset * size * n);
+            }
+            return col / (_BlurNum * 2 + 1);
         }
 
 		float4 accumulation(v2f i) : SV_Target
@@ -151,7 +168,13 @@
 			#pragma fragment reflection
 			ENDCG
 		}
-
+		Pass 
+        {
+            CGPROGRAM
+            #pragma vertex vert_fullscreen
+            #pragma fragment blur
+            ENDCG
+        }
 		Pass
 		{
 		    CGPROGRAM
@@ -159,7 +182,6 @@
 			#pragma fragment accumulation
 			ENDCG
 		}
-
 		Pass
 		{
 		    CGPROGRAM

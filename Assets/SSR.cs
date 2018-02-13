@@ -7,10 +7,21 @@ using UnityEngine;
 
 public class SSR : MonoBehaviour
 {
-    Mesh screenQuad;
+    enum Pass { reflection, blur, accumulation, composition }
+
+    Mesh quad;
     RenderTexture[] rts = new RenderTexture[2];
     [SerializeField] Shader shader;
     Material m;
+
+    [Header("Blur")]
+    [SerializeField]
+    Vector2 blurOffset = new Vector2(1f, 1f);
+    [SerializeField] uint blurNum = 3;
+
+    [SerializeField] float resolution = 0.5f;
+    int Width { get { return (int)(GetComponent<Camera>().pixelWidth * resolution); } }
+    int Height { get { return (int)(GetComponent<Camera>().pixelHeight * resolution); } }
 
     Mesh CreateQuad()
     {
@@ -75,11 +86,11 @@ public class SSR : MonoBehaviour
 
     private void OnRenderImage(RenderTexture s, RenderTexture d)
     {
-        if (screenQuad == null) screenQuad = CreateQuad();
+        if (quad == null) quad = CreateQuad();
+        if (m == null) m = new Material(shader);
 
         UpdateAccumulationTexture();
 
-        if (m == null) m = new Material(shader);
 
         var camera = GetComponent<Camera>();
         var view = camera.worldToCameraMatrix;
@@ -88,29 +99,45 @@ public class SSR : MonoBehaviour
         m.SetMatrix("_ViewProj", viewProj);
         m.SetMatrix("_InvViewProj", viewProj.inverse);
 
-        var reflectionTexture = RenderTexture.GetTemporary(
-             camera.pixelWidth,
-             camera.pixelHeight,
-             0,
-             RenderTextureFormat.ARGB32);
-
+        RenderTexture reflectionTexture = RenderTexture.GetTemporary(Width, Height, 0,RenderTextureFormat.ARGB32);
+        RenderTexture xBlurTexture = RenderTexture.GetTemporary(Width, Height, 0, RenderTextureFormat.ARGB32);
+        RenderTexture yBlurTexture = RenderTexture.GetTemporary(Width, Height, 0, RenderTextureFormat.ARGB32);
         reflectionTexture.filterMode = FilterMode.Bilinear;
+        xBlurTexture.filterMode = FilterMode.Bilinear;
+        yBlurTexture.filterMode = FilterMode.Bilinear;
 
-        Graphics.Blit(s, reflectionTexture, m, 0);
+        Graphics.Blit(s, reflectionTexture, m, (int)Pass.reflection);
         m.SetTexture("_ReflectionTexture", reflectionTexture);
+
+        if (blurNum > 0)
+        {
+            Graphics.SetRenderTarget(xBlurTexture);
+            m.SetVector("_BlurParams", new Vector4(blurOffset.x, 0f, blurNum, 0));
+            m.SetPass((int)Pass.blur);
+            Graphics.DrawMeshNow(quad, Matrix4x4.identity);
+            m.SetTexture("_ReflectionTexture", xBlurTexture);
+
+            Graphics.SetRenderTarget(yBlurTexture);
+            m.SetVector("_BlurParams", new Vector4(0f, blurOffset.y, blurNum, 0));
+            m.SetPass((int)Pass.blur);
+            Graphics.DrawMeshNow(quad, Matrix4x4.identity);
+            m.SetTexture("_ReflectionTexture", yBlurTexture);
+        }
 
         m.SetTexture("_PreAccumulationTexture", rts[1]);
         Graphics.SetRenderTarget(rts[0]);
-        m.SetPass(1);
-        Graphics.DrawMeshNow(screenQuad, Matrix4x4.identity);
+        m.SetPass((int)Pass.accumulation);
+        Graphics.DrawMeshNow(quad, Matrix4x4.identity);
 
         m.SetTexture("_AccumulationTexture", rts[0]);
         Graphics.SetRenderTarget(d);
-        Graphics.Blit(s, d, m, 2);
+        Graphics.Blit(s, d, m, (int)Pass.composition);
 
         RenderTexture.ReleaseTemporary(reflectionTexture);
+        RenderTexture.ReleaseTemporary(xBlurTexture);
+        RenderTexture.ReleaseTemporary(yBlurTexture);
 
-        var tmp = rts[1];
+        RenderTexture tmp = rts[1];
         rts[1] = rts[0];
         rts[0] = tmp;
     }
