@@ -104,7 +104,6 @@
             float3 normal = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0;
             float3 refDir = reflect(camDir, normal);
 
-
 			int maxRayNum = 50;
 			float maxLength = 2.0;
 			float  maxThickness = 0.3 / maxRayNum;
