@@ -29,18 +29,57 @@
         sampler2D _MainTex;
         float4 _MainTex_ST;
 
-        sampler2D _CameraGBufferTexture2; // normal texture
+        sampler2D _CameraGBufferTexture2;
         sampler2D _CameraDepthTexture;
         sampler2D _CameraDepthMipmap;
 
+		//
+		// utility functions 
+		//
+
         float ComputeDepth(float4 clippos)
         {
-        #if defined(SHADER_TARGET_GLSL) || defined(SHADER_API_GLES) || defined(SHADER_API_GLES3)
+            #if defined(SHADER_TARGET_GLSL) || defined(SHADER_API_GLES) || defined(SHADER_API_GLES3)
             return (clippos.z / clippos.w) * 0.5 + 0.5;
-        #else
+            #else
             return clippos.z / clippos.w;
-        #endif
+            #endif
         }
+
+		float HaltonSequence(float x)
+		{
+			float y = 0;
+			float h = 0.5f;
+			while (x > 0)
+			{
+				float digit = x % 2;
+				x = (x - digit) * h;
+				y = y + digit * h;
+				h *= 0.5f;
+			}
+			return y;
+		}
+
+		float SchlickFresnel(float u, float f0, float f90)
+		{
+			return f0 + (f90 - f0)*pow(1.0 - u, 5.0);
+		}
+
+		float DisneyDiffuse(float albedo, vec3 N, vec3 L, vec3 V, float roughness)
+		{
+			vec3 H = normalize(L + V);
+			float dotLH = saturate(dot(L, H));
+			float dotNL = saturate(dot(N, L));
+			float dotNV = saturate(dot(N, V));
+			float Fd90 = 0.5 + 2.0 * dotLH * dotLH * roughness;
+			float FL = SchlickFresnel(1.0, Fd90, dotNL);
+			float FV = SchlickFresnel(1.0, Fd90, dotNV);
+			return (albedo*FL*FV) / PI;
+		}
+
+		//
+		// end utility functions
+		//
 
         struct appdata
         {
@@ -90,6 +129,8 @@
 			[loop]
             for (int n = 1; n <= _MaxLoop; n++) 
             {
+				float test = HaltonSequence(n);
+
                 float3 step = refDir * _RayLenCoeff * (lod + 1);
                 
 				ray += step;
