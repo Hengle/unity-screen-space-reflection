@@ -80,10 +80,10 @@
             float3 normal = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0;
             float3 refDir = reflect(camDir, normal);
 
-            int lod = _MaxLOD;
+            int lod = 0;
             float currlen = 0;
 
-            for (int n = 1; n <= 20; ++n) 
+            for (int n = 1; n <= 100; n++) 
             {
                 float3 step       = refDir * _RayLenCoeff * (lod + 1);
                 float3 ray        = pos + n * step;                                        // head of ray
@@ -92,11 +92,8 @@
                 float  rayDepth   = ComputeDepth(rayScreen);
                 float  worldDepth = (lod == 0)? SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUV) : tex2Dlod(_CameraDepthMipmap, float4(rayUV, 0, lod)).x + _BaseRaise * lod; 
 
-                // ignore when out of screen
                 if (max(abs(rayUV.x - 0.5), abs(rayUV.y - 0.5)) > 0.5) break;
 
-                //col = float4(rayDepth * 5, 0, 0, 1.0);
-                //col = float4(worldDepth * 5, 0, 0, 1.0);
 
                 if(rayDepth < worldDepth)
                 {
@@ -110,14 +107,15 @@
                         lod--;
                     }
                 }
-
-
-                // when it comes max length, break
-                currlen += step;
-                if(currlen > _MaxRayLength)
+                else if(n <= _MaxLOD)
                 {
-                    break;
-                };
+                    lod++;
+                }
+
+
+                currlen += step;
+                if(currlen > _MaxRayLength) break;
+
             }
             return col;
         }
