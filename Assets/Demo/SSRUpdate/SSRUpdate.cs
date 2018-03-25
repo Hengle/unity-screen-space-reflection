@@ -4,11 +4,14 @@ using UnityEngine;
 
 public class SSRUpdate : MonoBehaviour
 {
+    enum ViewMode { Original, CalcCount, MipMap }
     [SerializeField] Shader shader;
-    [SerializeField] [Range(0, 6)] int maxLOD = 3;
-    [SerializeField] [Range(0, 10)] float maxRayLength = 3;
+    [SerializeField] ViewMode viewMode;
+    [SerializeField] [Range(0, 5)] int maxLOD = 3;
+    [SerializeField] [Range(0, 100)] int maxLoop = 100;
+    [SerializeField] [Range(0, 100)] float maxRayLength = 3;
     [SerializeField] [Range(0.0001f, 0.1f)] float baseRaise = 0.00001f;
-    [SerializeField] [Range(0.01f, 0.5f)] float thickness = 0.01f;
+    [SerializeField] [Range(0.001f, 0.1f)] float thickness = 0.01f;
     [SerializeField] [Range(0.01f, 0.1f)] float rayLengthCoeff = 0.01f;
 
 	Material mat;
@@ -20,7 +23,10 @@ public class SSRUpdate : MonoBehaviour
         mat = new Material(shader);
         dpt = new RenderTexture(Screen.width, Screen.height, 24);
         dpt.useMipMap = true;
-
+        dpt.autoGenerateMips = true;
+        dpt.enableRandomWrite = true;
+        dpt.filterMode = FilterMode.Bilinear;
+        dpt.Create();
         cam = GetComponent<Camera>();
 	}
 
@@ -28,6 +34,23 @@ public class SSRUpdate : MonoBehaviour
     {
         Destroy(mat);
         dpt.Release();
+    }
+
+    void Update()
+    {
+        var resolution = new Vector2Int(cam.pixelWidth, cam.pixelHeight);
+
+        if(dpt != null && (dpt.width != resolution.x || dpt.height != resolution.y)) dpt.Release();
+
+        if(dpt == null || !dpt.IsCreated())
+        {
+            dpt = new RenderTexture(Screen.width, Screen.height, 24);
+            dpt.useMipMap = true;
+            dpt.autoGenerateMips = true;
+            dpt.enableRandomWrite = true;
+            dpt.filterMode = FilterMode.Bilinear;
+            dpt.Create();
+        }
     }
 
     void OnRenderImage(RenderTexture src, RenderTexture dst)
@@ -46,7 +69,9 @@ public class SSRUpdate : MonoBehaviour
         mat.SetMatrix("_InvViewProj", viewProj.inverse);
 
         mat.SetFloat("_MaxRayLength", maxRayLength);
+        mat.SetInt("_ViewMode", (int) viewMode);
         mat.SetInt("_MaxLOD", maxLOD);
+        mat.SetInt("_MaxLoop", maxLoop);
 
         mat.SetTexture("_CameraDepthMipmap", dpt);
 

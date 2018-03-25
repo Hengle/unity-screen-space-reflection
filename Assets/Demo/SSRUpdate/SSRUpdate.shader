@@ -15,7 +15,9 @@
 
         #include "UnityCG.cginc"
 
+		int _ViewMode;
         int _MaxLOD;
+		int _MaxLoop;
         float _MaxRayLength;
         float _Thickness;
         float _RayLenCoeff;
@@ -82,15 +84,20 @@
 
             int lod = 0;
             float currlen = 0;
+			int calcTimes = 0;
+			float3 ray = pos;
 
-            for (int n = 1; n <= 100; n++) 
+			[loop]
+            for (int n = 1; n <= _MaxLoop; n++) 
             {
-                float3 step       = refDir * _RayLenCoeff * (lod + 1);
-                float3 ray        = pos + n * step;                                        // head of ray
-                float4 rayScreen  = mul(_ViewProj, float4(ray, 1.0));                      // screen
-                float2 rayUV      = rayScreen.xy / rayScreen.w * 0.5 + 0.5;                // 0 ~ 1
+                float3 step = refDir * _RayLenCoeff * (lod + 1);
+                
+				ray += step;
+
+                float4 rayScreen  = mul(_ViewProj, float4(ray, 1.0));
+                float2 rayUV      = rayScreen.xy / rayScreen.w * 0.5 + 0.5;
                 float  rayDepth   = ComputeDepth(rayScreen);
-                float  worldDepth = (lod == 0)? SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUV) : tex2Dlod(_CameraDepthMipmap, float4(rayUV, 0, lod)).x + _BaseRaise * lod; 
+                float  worldDepth = (lod == 0)? SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUV) : tex2Dlod(_CameraDepthMipmap, float4(rayUV, 0, lod)) + _BaseRaise * lod; 
 
                 if (max(abs(rayUV.x - 0.5), abs(rayUV.y - 0.5)) > 0.5) break;
 
@@ -99,11 +106,26 @@
                 {
                     if(lod == 0)
                     {
-                        if (rayDepth + _Thickness > worldDepth) col = tex2D(_MainTex, rayUV);
+                        if (rayDepth + _Thickness > worldDepth)
+						{
+						    float sign = -1.0;
+							for(int m = 1; m <=8; ++m)
+							{
+							    ray += sign * pow(0.5, m) * step;
+								rayScreen = mul(_ViewProj, float4(ray, 1.0));
+							    rayUV = rayScreen.xy / rayScreen.w * 0.5 + 0.5;
+                                rayDepth = ComputeDepth(rayScreen);
+								worldDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUV);
+								sign = (rayDepth < worldDepth)? -1 : 1; 
+
+							}
+						    col = tex2D(_MainTex, rayUV);
+						}
                         break;
                     }
                     else
                     {
+					    ray -= step;
                         lod--;
                     }
                 }
@@ -112,11 +134,18 @@
                     lod++;
                 }
 
+                currlen += abs(step);
+                if(currlen > _MaxRayLength) 
+				{
+				    break;
+				}
 
-                currlen += step;
-                if(currlen > _MaxRayLength) break;
-
+				calcTimes = n;
             }
+
+			if (_ViewMode == 1) col = float4(1, 1, 1, 1) * calcTimes / _MaxLoop * 0.5;
+			if (_ViewMode == 2) col = float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
+
             return col;
         }
 
