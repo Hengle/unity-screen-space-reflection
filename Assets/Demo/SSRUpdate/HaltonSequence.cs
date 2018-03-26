@@ -8,11 +8,11 @@ public class HaltonSequence : MonoBehaviour
     {
         var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
 
-        for (float i = 0; i < 10; i += 0.5f)
+        for (float i = 0; i < 100; i += 0.5f)
         {
             float x = i;
             float y = 0;
-            float h = 0.5f;
+            float h = 1 / 3.0f;
             while (x > 0)
             {
                 float digit = x % 2;

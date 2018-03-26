@@ -474,8 +474,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shader: {fileID: 4800000, guid: 1cc77cf6cddab413fb5735dfb59f4b94, type: 3}
-  viewMode: 1
-  maxLOD: 4
+  viewMode: 0
+  maxLOD: 0
   maxLoop: 100
   maxRayLength: 100
   baseRaise: 0.000001
