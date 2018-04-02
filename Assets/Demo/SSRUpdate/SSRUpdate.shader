@@ -248,12 +248,13 @@
 
             float3 cam = normalize(pos - _WorldSpaceCameraPos);
             float3 nor = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0; // roughness が大きくなるほどこれの振れ幅が大きくなる
-			float3 norRough = normalize(nor + randomInSphere(nor + float3(_TimeElapsed, _TimeElapsed * 0.28, _TimeElapsed * 0.35), 0.2));
+			float3 norRough = normalize(nor + randomInSphere(nor + float3(_TimeElapsed, _TimeElapsed * 0.28, _TimeElapsed * 0.35), 0.01));
             float3 ref = reflect(cam, nor);
             float3 hlf = normalize(cam + ref);
+			float3 refRough = reflect(cam, norRough);
 
 
-            float4 refcol = raytracing(ref, pos, col);
+            float4 refcol = raytracing(ref, pos, col) *0.8 + raytracing(refRough, pos, col) * 0.2 ;
 		    col = col * (1-smooth) + refcol * smooth;
 
             if (_ViewMode == 1) col = float4((norRough.xyz), 1);
