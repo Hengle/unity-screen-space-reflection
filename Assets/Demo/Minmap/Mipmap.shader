@@ -1,4 +1,4 @@
-﻿Shader "Unlit/MipmapTest"
+﻿Shader "Unlit/Mipmap"
 {
 	Properties
 	{
@@ -45,8 +45,7 @@
 			
 			fixed4 frag (v2f i) : SV_Target
 			{
-				fixed4 col = tex2Dlod(_MainTex, float4(i.uv, 0, _LOD));
-				return col;
+				return tex2Dlod(_MainTex, float4(i.uv, 0, _LOD));
 			}
 			ENDCG
 		}

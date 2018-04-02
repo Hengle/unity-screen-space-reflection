@@ -32,7 +32,10 @@
 		float _Roughness;
 		float _FresnelReflectance;
 
-        sampler2D _CameraGBufferTexture2;
+        sampler2D _CameraGBufferTexture0; // rgb: diffuse,  a: occlusion
+        sampler2D _CameraGBufferTexture1; // rgb: specular, a: smoothness
+        sampler2D _CameraGBufferTexture2; // rgb: normal,   a: unused
+        sampler2D _CameraGBufferTexture3; // rgb: emission, a: unused
         sampler2D _CameraDepthTexture;
         sampler2D _CameraDepthMipmap;
 
@@ -63,7 +66,13 @@
 			return y;
 		}
 
-		float D_GGX(float3 H, float3 N) {
+        //
+        // V : view vector
+        // L : light vector
+        // H : half vector
+        //
+		float D_GGX(float3 H, float3 N)
+        {
 			float NdotH = saturate(dot(H, N));
 			float roughness = saturate(_Roughness);
 		    float alpha = roughness * roughness;
@@ -73,7 +82,8 @@
 			return alpha2 / (PI * t * t);
 		}
 
-		float Flesnel(float3 V, float3 H) {
+		float Flesnel(float3 V, float3 H)
+        {
 			float VdotH = saturate(dot(V, H));
 		    float F0 = saturate(_FresnelReflectance);
 		    float F = pow(1.0 - VdotH, 5.0);
@@ -94,6 +104,25 @@
 		    float G = min(1.0, min(g1, g2));
 			return G;
 		}
+
+        float SchlickFresnel(float u, float f0, float f90)
+        {
+          return f0 + (f90-f0)*pow(1.0-u,5.0);
+        }
+
+
+        float DisneyDiffuse(float albedo, float3 N, float3 L, float3 V, float roughness)
+        {
+          float PI = 3.1415;
+          float3 H = normalize(L+V);
+          float dotLH = saturate(dot(L,H));
+          float dotNL = saturate(dot(N,L));
+          float dotNV = saturate(dot(N,V));
+          float Fd90 = 0.5 + 2.0 * dotLH * dotLH * roughness;
+          float FL = SchlickFresnel(1.0, Fd90, dotNL);
+          float FV = SchlickFresnel(1.0, Fd90, dotNV);
+          return (albedo*FL*FV)/PI;
+        }
 
 		//
 		// end utility functions
@@ -130,13 +159,11 @@
             float currlen = 0;
 			int calcTimes = 0;
 			float3 ray = initpos;
-			float4 outcol;
+			float4 outcol = originalcol;
 
 			[loop]
             for (int n = 1; n <= _MaxLoop; n++) 
             {
-				outcol = originalcol;
-                
 				float3 step = refDir * _RayLenCoeff * (lod + 1);
                 
 				ray += step;
@@ -184,7 +211,7 @@
 				calcTimes = n;
             }
 
-			if (_ViewMode == 1) outcol = float4(1, 1, 1, 1) * calcTimes / _MaxLoop * 0.5;
+			if (_ViewMode == 3) outcol = float4(1, 1, 1, 1) * calcTimes / _MaxLoop * 0.5;
 
 			return outcol;
 		}
@@ -192,22 +219,34 @@
         float4 reflection (v2f i) : SV_Target
         {
             float2 uv = i.screen.xy / i.screen.w;
-            float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
             float4 col = tex2D(_MainTex, uv);
+            float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+            float smooth = tex2D(_CameraGBufferTexture1, uv).w;
             if (depth <= 0.0) return tex2D(_MainTex, uv);
 
             float2 screenpos = 2.0 * uv - 1.0;
             float4 pos = mul(_InvViewProj, float4(screenpos, depth, 1.0));
             pos /= pos.w;
 
-            float3 camDir = normalize(pos - _WorldSpaceCameraPos);
-            float3 normal = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0;
-            float3 refDir = reflect(camDir, normal);
-			float3 refDirNoise = refDir + float3(0.1, 0.1, 0.1);
+            float3 cam = normalize(pos - _WorldSpaceCameraPos);
+            float3 nor = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0; // roughness が大きくなるほどこれの振れ幅が大きくなる
+            float3 ref = reflect(cam, nor);
+            float3 hlf = normalize(cam + ref);
 
-		    col = raytracing(refDir, pos, col) / 2 + raytracing(refDirNoise, pos, col) / 2;
 
-			if (_ViewMode == 2) col = float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
+            float4 refcol = raytracing(ref, pos, col);
+		    col = col * (1-smooth) + refcol * smooth;
+
+            if (_ViewMode == 1) col = float4((nor.xyz), 1);
+            if (_ViewMode == 2) col = float4((ref.xyz), 1);
+			if (_ViewMode == 4) col = float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
+
+            if (_ViewMode == 5) col = float4(tex2D(_CameraGBufferTexture0, uv).xyz, 1);
+            if (_ViewMode == 6) col = float4(tex2D(_CameraGBufferTexture1, uv).xyz, 1);
+            if (_ViewMode == 7) col = float4(0, tex2D(_CameraGBufferTexture0, uv).w, 0, 1);
+            if (_ViewMode == 8) col = float4(0, tex2D(_CameraGBufferTexture1, uv).w, 0, 1);
+
+
             return col;
         }
         ENDCG

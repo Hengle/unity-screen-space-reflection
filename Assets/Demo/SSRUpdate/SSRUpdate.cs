@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class SSRUpdate : MonoBehaviour
 {
-    enum ViewMode { Original, CalcCount, MipMap }
+    enum ViewMode { Original, Normal, Reflection, CalcCount, MipMap, Diffuse, Speclar, Occlusion, Smmothness }
     [SerializeField] Shader shader;
     [SerializeField] ViewMode viewMode;
     [SerializeField] [Range(0, 5)] int maxLOD = 3;
@@ -57,16 +57,18 @@ public class SSRUpdate : MonoBehaviour
     {
         Graphics.Blit(src, dpt, mat, 0);
 
-
+        // world <-> screen matrix
         var view = cam.worldToCameraMatrix;
         var proj = GL.GetGPUProjectionMatrix(cam.projectionMatrix, false);
         var viewProj = proj * view;
-
-        mat.SetFloat("_BaseRaise", baseRaise);
-		mat.SetFloat("_Thickness", thickness);
-        mat.SetFloat("_RayLenCoeff", rayLengthCoeff);
         mat.SetMatrix("_ViewProj", viewProj);
         mat.SetMatrix("_InvViewProj", viewProj.inverse);
+
+
+        mat.SetFloat("_BaseRaise", baseRaise);
+        mat.SetFloat("_Thickness", thickness);
+        mat.SetFloat("_RayLenCoeff", rayLengthCoeff);
+
 
         mat.SetFloat("_MaxRayLength", maxRayLength);
         mat.SetInt("_ViewMode", (int) viewMode);
