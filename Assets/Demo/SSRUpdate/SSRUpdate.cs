@@ -75,6 +75,8 @@ public class SSRUpdate : MonoBehaviour
         mat.SetInt("_MaxLOD", maxLOD);
         mat.SetInt("_MaxLoop", maxLoop);
 
+        mat.SetFloat("_TimeElapsed", Time.time);
+
         mat.SetTexture("_CameraDepthMipmap", dpt);
 
         Graphics.Blit(src, dst, mat, 1);

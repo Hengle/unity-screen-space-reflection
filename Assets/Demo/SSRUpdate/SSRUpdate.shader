@@ -14,6 +14,7 @@
         CGINCLUDE
 
         #include "UnityCG.cginc"
+        #define PI 3.14159265359
 
 		int _ViewMode;
         int _MaxLOD;
@@ -32,6 +33,7 @@
 		float _Roughness;
 		float _FresnelReflectance;
 
+		float _TimeElapsed;
         sampler2D _CameraGBufferTexture0; // rgb: diffuse,  a: occlusion
         sampler2D _CameraGBufferTexture1; // rgb: specular, a: smoothness
         sampler2D _CameraGBufferTexture2; // rgb: normal,   a: unused
@@ -78,7 +80,6 @@
 		    float alpha = roughness * roughness;
 		    float alpha2 = alpha * alpha;
 			float t = ((NdotH * NdotH) * (alpha2 - 1.0) + 1.0);
-			float PI = 3.1415926535897;
 			return alpha2 / (PI * t * t);
 		}
 
@@ -113,7 +114,6 @@
 
         float DisneyDiffuse(float albedo, float3 N, float3 L, float3 V, float roughness)
         {
-          float PI = 3.1415;
           float3 H = normalize(L+V);
           float dotLH = saturate(dot(L,H));
           float dotNL = saturate(dot(N,L));
@@ -123,6 +123,24 @@
           float FV = SchlickFresnel(1.0, Fd90, dotNV);
           return (albedo*FL*FV)/PI;
         }
+
+		float rand(float2 co)
+		{
+			return frac(sin(dot(co.xy, float2(12.9898, 78.233))) * 43758.5453);
+		}
+
+		float3 randomInSphere(float3 pos, float l) {
+			float x = rand(pos.xy) * 2 - 1.0;
+			float y = rand(pos.yz) * 2 - 1.0;
+			float z = rand(pos.zx) * 2 - 1.0;
+			float r = sqrt(x * x + y * y + z * z);
+
+			x /= r;
+			y /= r;
+			z /= r;
+
+			return float3(x, y, z) * l;
+		}
 
 		//
 		// end utility functions
@@ -230,6 +248,7 @@
 
             float3 cam = normalize(pos - _WorldSpaceCameraPos);
             float3 nor = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0; // roughness が大きくなるほどこれの振れ幅が大きくなる
+			float3 norRough = normalize(nor + randomInSphere(nor + float3(_TimeElapsed, _TimeElapsed * 0.28, _TimeElapsed * 0.35), 0.2));
             float3 ref = reflect(cam, nor);
             float3 hlf = normalize(cam + ref);
 
@@ -237,7 +256,7 @@
             float4 refcol = raytracing(ref, pos, col);
 		    col = col * (1-smooth) + refcol * smooth;
 
-            if (_ViewMode == 1) col = float4((nor.xyz), 1);
+            if (_ViewMode == 1) col = float4((norRough.xyz), 1);
             if (_ViewMode == 2) col = float4((ref.xyz), 1);
 			if (_ViewMode == 4) col = float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
 

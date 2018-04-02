@@ -14,7 +14,6 @@ public class Mipmap : MonoBehaviour
         mat = new Material(shader);
         rt = new RenderTexture(Screen.width, Screen.height, 24);
         rt.useMipMap = true;
-
     }
 
     void OnDisable()
