@@ -267,7 +267,7 @@
 
             if (_ViewMode == 1) col = float4((norRough.xyz), 1);
             if (_ViewMode == 2) col = float4((ref.xyz), 1);
-            if (_ViewMode == 3) col = float4(1, 1, 1, 1) * calcTimes / _MaxLoop * 0.5;
+            if (_ViewMode == 3) col = float4(1, 1, 1, 1) * calcTimes / _MaxLoop;
 			if (_ViewMode == 4) col = float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
 
             if (_ViewMode == 5) col = float4(tex2D(_CameraGBufferTexture0, uv).xyz, 1);
