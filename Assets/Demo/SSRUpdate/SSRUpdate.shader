@@ -33,7 +33,15 @@
 		float _Roughness;
 		float _FresnelReflectance;
 
-		float _TimeElapsed;
+        float4 _BlurParams;
+        #define _BlurOffset _BlurParams.xy
+        #define _BlurNum (int)(_BlurParams.z)
+
+        sampler2D _ReflectionTexture;
+        float4 _ReflectionTexture_TexelSize;
+        sampler2D _PreAccumulationTexture;
+        sampler2D _AccumulationTexture;
+
         sampler2D _CameraGBufferTexture0; // rgb: diffuse,  a: occlusion
         sampler2D _CameraGBufferTexture1; // rgb: specular, a: smoothness
         sampler2D _CameraGBufferTexture2; // rgb: normal,   a: unused
@@ -165,26 +173,51 @@
             o.screen = ComputeScreenPos(o.vertex);
             return o;
         }
+
+        v2f vert_fullscreen(appdata v)
+        {
+            v2f o;
+            o.vertex = v.vertex;
+            o.screen = ComputeScreenPos(o.vertex);
+            return o;
+        }
         
         float4 outDepthTexture (v2f i) : SV_Target
         {
             return tex2D(_CameraDepthTexture, i.screen);
         }
 
-		float4 raytracing (float3 refDir, float4 initpos, float4 originalcol)
-		{
-		    int lod = 0;
-            float currlen = 0;
-			int calcTimes = 0;
-			float3 ray = initpos;
-			float4 outcol = originalcol;
+        float4 reflection (v2f i) : SV_Target
+        {
+            float2 uv = i.screen.xy / i.screen.w;
+            float4 col = tex2D(_MainTex, uv);
+            float4 refcol = tex2D(_MainTex, uv);
+            float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+            float smooth = tex2D(_CameraGBufferTexture1, uv).w;
+            if (depth <= 0.0) return tex2D(_MainTex, uv);
 
-			[loop]
+            float2 screenpos = 2.0 * uv - 1.0;
+            float4 pos = mul(_InvViewProj, float4(screenpos, depth, 1.0));
+            pos /= pos.w;
+
+            float3 cam = normalize(pos - _WorldSpaceCameraPos);
+            float3 nor = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0; // roughness が大きくなるほどこれの振れ幅が大きくなる
+			float3 norRough = normalize(nor + randomInSphere(nor.zyx, 0.01));
+            float3 ref = reflect(cam, nor);
+            float3 hlf = normalize(cam + ref);
+			float3 refRough = reflect(cam, norRough);
+
+            int lod = 0;
+            float currlen = 0;
+            int calcTimes = 0;
+            float3 ray = pos;
+
+            [loop]
             for (int n = 1; n <= _MaxLoop; n++) 
             {
-				float3 step = refDir * _RayLenCoeff * (lod + 1);
+                float3 step = ref * _RayLenCoeff * (lod + 1);
                 
-				ray += step;
+                ray += step * (1 + rand(uv + _Time.x) * 0.5);
 
                 float4 rayScreen  = mul(_ViewProj, float4(ray, 1.0));
                 float2 rayUV      = rayScreen.xy / rayScreen.w * 0.5 + 0.5;
@@ -198,24 +231,24 @@
                     if(lod == 0)
                     {
                         if (rayDepth + _Thickness > worldDepth)
-						{
-						    float sign = -1.0;
-							for(int m = 1; m <=8; ++m)
-							{
-							    ray += sign * pow(0.5, m) * step;
-								rayScreen = mul(_ViewProj, float4(ray, 1.0));
-							    rayUV = rayScreen.xy / rayScreen.w * 0.5 + 0.5;
+                        {
+                            float sign = -1.0;
+                            for(int m = 1; m <=8; ++m)
+                            {
+                                ray += sign * pow(0.5, m) * step;
+                                rayScreen = mul(_ViewProj, float4(ray, 1.0));
+                                rayUV = rayScreen.xy / rayScreen.w * 0.5 + 0.5;
                                 rayDepth = ComputeDepth(rayScreen);
-								worldDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUV);
-								sign = (rayDepth < worldDepth)? -1 : 1; 
-							}
-						    outcol = tex2D(_MainTex, rayUV);
-						}
+                                worldDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, rayUV);
+                                sign = (rayDepth < worldDepth)? -1 : 1; 
+                            }
+                            refcol = tex2D(_MainTex, rayUV);
+                        }
                         break;
                     }
                     else
                     {
-					    ray -= step;
+                        ray -= step;
                         lod--;
                     }
                 }
@@ -226,49 +259,57 @@
 
                 currlen += abs(step);
                 if(currlen > _MaxRayLength) break;
-				calcTimes = n;
+                calcTimes = n;
             }
 
-			if (_ViewMode == 3) outcol = float4(1, 1, 1, 1) * calcTimes / _MaxLoop * 0.5;
-
-			return outcol;
-		}
-
-        float4 reflection (v2f i) : SV_Target
-        {
-            float2 uv = i.screen.xy / i.screen.w;
-            float4 col = tex2D(_MainTex, uv);
-            float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
-            float smooth = tex2D(_CameraGBufferTexture1, uv).w;
-            if (depth <= 0.0) return tex2D(_MainTex, uv);
-
-            float2 screenpos = 2.0 * uv - 1.0;
-            float4 pos = mul(_InvViewProj, float4(screenpos, depth, 1.0));
-            pos /= pos.w;
-
-            float3 cam = normalize(pos - _WorldSpaceCameraPos);
-            float3 nor = tex2D(_CameraGBufferTexture2, uv) * 2.0 - 1.0; // roughness が大きくなるほどこれの振れ幅が大きくなる
-			float3 norRough = normalize(nor + randomInSphere(nor + float3(_TimeElapsed, _TimeElapsed * 0.28, _TimeElapsed * 0.35), 0.01));
-            float3 ref = reflect(cam, nor);
-            float3 hlf = normalize(cam + ref);
-			float3 refRough = reflect(cam, norRough);
-
-
-            float4 refcol = raytracing(ref, pos, col) *0.8 + raytracing(refRough, pos, col) * 0.2 ;
-		    col = col * (1-smooth) + refcol * smooth;
+            float a = pow(min(1.0, 100.0 / length(ray)), 2.0);
+            col = col * (1-a) * (1 - smooth) + refcol * a * smooth;
 
             if (_ViewMode == 1) col = float4((norRough.xyz), 1);
             if (_ViewMode == 2) col = float4((ref.xyz), 1);
+            if (_ViewMode == 3) col = float4(1, 1, 1, 1) * calcTimes / _MaxLoop * 0.5;
 			if (_ViewMode == 4) col = float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
 
             if (_ViewMode == 5) col = float4(tex2D(_CameraGBufferTexture0, uv).xyz, 1);
             if (_ViewMode == 6) col = float4(tex2D(_CameraGBufferTexture1, uv).xyz, 1);
             if (_ViewMode == 7) col = float4(0, tex2D(_CameraGBufferTexture0, uv).w, 0, 1);
             if (_ViewMode == 8) col = float4(0, tex2D(_CameraGBufferTexture1, uv).w, 0, 1);
+            if (_ViewMode == 9) col = float4(tex2D(_CameraGBufferTexture3, uv).xyz, 1);
 
 
             return col;
         }
+
+        float4 blur(v2f i) : SV_Target
+        {
+            float2 uv = i.screen.xy / i.screen.w;
+            float2 size = _ReflectionTexture_TexelSize;
+        
+            float4 col = 0.0;
+            for (int n = -_BlurNum; n <= _BlurNum; ++n) {
+                col += tex2D(_ReflectionTexture, uv + _BlurOffset * size * n);
+            }
+            return col / (_BlurNum * 2 + 1);
+        }
+
+        float4 accumulation(v2f i) : SV_Target
+        {
+            float2 uv = i.screen.xy / i.screen.w;
+            float4 base = tex2D(_PreAccumulationTexture, uv);
+            float4 reflection = tex2D(_ReflectionTexture, uv);
+            float blend = 0.2;
+            return lerp(base, reflection, blend);
+        }
+        
+        float4 composition(v2f i) : SV_Target
+        {
+            float2 uv = i.screen.xy / i.screen.w;
+            float4 base = tex2D(_MainTex, uv);
+            float4 reflection = tex2D(_AccumulationTexture, uv);
+            float a = reflection.a;
+            return lerp(base, reflection, a);
+        }
+
         ENDCG
 
 		Pass
@@ -284,6 +325,29 @@
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment reflection
+            ENDCG
+        }
+
+        Pass 
+        {
+            CGPROGRAM
+            #pragma vertex vert_fullscreen
+            #pragma fragment blur
+            ENDCG
+        }
+
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert_fullscreen
+            #pragma fragment accumulation
+            ENDCG
+        }
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment composition
             ENDCG
         }
 	}
