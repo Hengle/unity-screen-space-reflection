@@ -1,18 +1,15 @@
 fileFormatVersion: 2
-guid: 3c878f3bcd7676c4d8c2aa64f3233dc8
-timeCreated: 1523169385
+guid: 075c41e70565c8e439aac5cfae6f977b
+timeCreated: 1523178037
 licenseType: Pro
 ModelImporter:
   serializedVersion: 22
   fileIDToRecycleName:
-    100000: default
-    100002: //RootNode
-    400000: default
-    400002: //RootNode
-    2100000: defaultMat
-    2300000: default
-    3300000: default
-    4300000: default
+    100000: //RootNode
+    400000: //RootNode
+    2300000: //RootNode
+    3300000: //RootNode
+    4300000: mesh
   externalObjects: {}
   materials:
     importMaterials: 1
