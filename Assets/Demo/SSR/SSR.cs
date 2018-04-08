@@ -20,7 +20,8 @@ public class SSR : MonoBehaviour
 
     [Header("Blur")]
     [SerializeField] int blurNum;
-    [SerializeField] [Range(0.01f, 0.1f)] float blurThreshold;
+    [SerializeField] [Range(0.0f, 0.1f)] float blurThreshold;
+    [SerializeField] [Range(0, 1)] float reflectionRate;
 
     Material mat;
     RenderTexture dpt;
@@ -148,6 +149,7 @@ public class SSR : MonoBehaviour
         mat.SetTexture("_ReflectionTexture", reflectionTexture);
 
         mat.SetFloat("_BlurThreshold", blurThreshold);
+        mat.SetFloat("_ReflectionRate", reflectionRate);
 
         for(var i =0; i < blurNum; i++)
         {
