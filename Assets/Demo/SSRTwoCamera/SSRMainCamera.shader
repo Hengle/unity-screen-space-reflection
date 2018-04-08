@@ -18,6 +18,7 @@
 
 		// from main camera
 		sampler2D _MainTex;
+	    sampler2D _CameraGBufferTexture1;
 		sampler2D _CameraGBufferTexture2;
 		sampler2D _CameraDepthTexture;
 		float4 _MainTex_ST;
@@ -60,6 +61,7 @@
 		  float2 uv = i.screen.xy / i.screen.w;
 		  float2 uvCenter = 2.0 * uv - 1.0;
 		  float4 col = tex2D(_MainTex, uv);
+		  float smooth = tex2D(_CameraGBufferTexture1, uv).w;
 
 		  //return tex2D(_SubCameraDepthTex, uv);
 
@@ -102,7 +104,7 @@
 			  col = tex2D(_SubCameraMainTex, rayUv);
 			}
 		  }
-		  return col;
+		  return col * smooth + tex2D(_MainTex, uv) * (1 - smooth);
 		}
 		ENDCG
 

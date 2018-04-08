@@ -190,7 +190,7 @@ GameObject:
   - component: {fileID: 1333995175}
   - component: {fileID: 1333995174}
   m_Layer: 0
-  m_Name: Plane
+  m_Name: Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -297,7 +297,7 @@ MeshRenderer:
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_Materials:
-  - {fileID: 2100000, guid: 5bdaf7c4a1837274e8ff920ac70a3748, type: 2}
+  - {fileID: 2100000, guid: 8610a178aefb9f844a544f63c77808c4, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -616,7 +616,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1619072551}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -3.52, y: 0.2, z: 1.21}
+  m_LocalPosition: {x: -3.52, y: 0.25, z: 1.21}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_Children: []
   m_Father: {fileID: 0}
@@ -661,6 +661,11 @@ Prefab:
       propertyPath: m_RootOrder
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 23073849342806150, guid: f44015fdb7bf0f0489925f4fd84b9365,
+        type: 2}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 34c0b862b7df5bf42b943f67c71bb48c, type: 2}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: f44015fdb7bf0f0489925f4fd84b9365, type: 2}
   m_IsPrefabParent: 0
