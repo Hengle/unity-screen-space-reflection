@@ -12,6 +12,6 @@ public class CubeTransform : MonoBehaviour
 
     void Update()
     {
-        transform.Rotate(0, -0.1f, 0);
+        transform.Rotate(0, -0.1f, 0, Space.World);
     }
 }

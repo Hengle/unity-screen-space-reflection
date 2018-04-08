@@ -62,6 +62,7 @@
                 col += tex2D(_MainTex, i.uv + float2(0, offset[j]) * size) * weight[j];
                 col += tex2D(_MainTex, i.uv - float2(0, offset[j]) * size) * weight[j];
             }
+
             return col;
         }
 
