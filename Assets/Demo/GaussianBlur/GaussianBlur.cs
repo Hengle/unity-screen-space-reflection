@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class GaussianBlur : MonoBehaviour {
-
+public class GaussianBlur : MonoBehaviour
+{
     Material mat;
     RenderTexture rt;
     [SerializeField] Shader shader;
+    [SerializeField] int blurNum = 3;
 
     void OnEnable()
     {
@@ -20,7 +21,11 @@ public class GaussianBlur : MonoBehaviour {
 
     void OnRenderImage(RenderTexture src, RenderTexture dst)
     {
-        Graphics.Blit(src, mat, 0);
-        Graphics.Blit(src, dst, mat, 1);
+        for (int i = 0; i < blurNum; i++)
+        {
+            Graphics.Blit(src, mat, 0);
+            Graphics.Blit(src, mat, 1);
+        }
+        Graphics.Blit(src, dst);
     }
 }

@@ -9,19 +9,18 @@ public class SSR : MonoBehaviour
     enum ViewMode { Original, Normal, Reflection, CalcCount, MipMap, Diffuse, Speclar, Occlusion, Smmothness, Emission }
 
     [Header("Reflection")]
-    [SerializeField]
-    Shader shader;
-    [SerializeField] ViewMode viewMode;
+    [SerializeField] Shader shader;
+    [SerializeField] ViewMode viewMode = ViewMode.Original;
     [SerializeField] [Range(0, 5)] int maxLOD = 3;
     [SerializeField] [Range(0, 150)] int maxLoop = 150;
-    [SerializeField] [Range(0.001f, 0.01f)] float baseRaise = 0.001f;
-    [SerializeField] [Range(0.001f, 0.01f)] float thickness = 0.006f;
-    [SerializeField] [Range(0.01f, 0.1f)] float rayLengthCoeff = 0.06f;
+    [SerializeField] [Range(0.001f, 0.01f)] float baseRaise = 0.002f;
+    [SerializeField] [Range(0.001f, 0.01f)] float thickness = 0.003f;
+    [SerializeField] [Range(0.01f, 0.1f)] float rayLengthCoeff = 0.052f;
 
     [Header("Blur")]
-    [SerializeField] int blurNum;
-    [SerializeField] [Range(0.0f, 0.1f)] float blurThreshold;
-    [SerializeField] [Range(0, 1)] float reflectionRate;
+    [SerializeField] int blurNum = 3;
+    [SerializeField] [Range(0.0f, 0.1f)] float blurThreshold = 0.01f;
+    [SerializeField] [Range(0f, 1f)] float reflectionRate = 1f;
 
     Material mat;
     RenderTexture dpt;
@@ -74,10 +73,7 @@ public class SSR : MonoBehaviour
     {
         var resolution = new Vector2Int(cam.pixelWidth, cam.pixelHeight);
 
-        if (dpt != null && (dpt.width != resolution.x || dpt.height != resolution.y))
-        {
-            dpt.Release();
-        }
+        if (dpt != null && (dpt.width != resolution.x || dpt.height != resolution.y)) dpt.Release();
 
         if (dpt == null || !dpt.IsCreated())
         {
@@ -91,10 +87,7 @@ public class SSR : MonoBehaviour
 
         for (int i = 0; i < 2; ++i)
         {
-            if (rts[i] != null && (
-                rts[i].width != (int)resolution.x ||
-                rts[i].height != (int)resolution.y
-            ))
+            if (rts[i] != null && ( rts[i].width != resolution.x || rts[i].height != resolution.y))
             {
                 if (rts[i] != null)
                 {
@@ -105,7 +98,7 @@ public class SSR : MonoBehaviour
 
             if (rts[i] == null || !rts[i].IsCreated())
             {
-                rts[i] = new RenderTexture((int)resolution.x, (int)resolution.y, 0, RenderTextureFormat.ARGB32);
+                rts[i] = new RenderTexture(resolution.x, resolution.y, 0, RenderTextureFormat.ARGB32);
                 rts[i].filterMode = FilterMode.Bilinear;
                 rts[i].useMipMap = false;
                 rts[i].autoGenerateMips = false;
@@ -151,27 +144,36 @@ public class SSR : MonoBehaviour
         mat.SetFloat("_BlurThreshold", blurThreshold);
         mat.SetFloat("_ReflectionRate", reflectionRate);
 
-        for(var i =0; i < blurNum; i++)
+        if (viewMode == ViewMode.Original)
         {
-            Graphics.SetRenderTarget(xBlurTexture);
-            mat.SetPass((int)Pass.xblur);
-            Graphics.DrawMeshNow(quad, Matrix4x4.identity);
-            mat.SetTexture("_ReflectionTexture", xBlurTexture);
+            for (var i = 0; i < blurNum; i++)
+            {
+                Graphics.SetRenderTarget(xBlurTexture);
+                mat.SetPass((int)Pass.xblur);
+                Graphics.DrawMeshNow(quad, Matrix4x4.identity);
+                mat.SetTexture("_ReflectionTexture", xBlurTexture);
 
-            Graphics.SetRenderTarget(yBlurTexture);
-            mat.SetPass((int)Pass.yblur);
+                Graphics.SetRenderTarget(yBlurTexture);
+                mat.SetPass((int)Pass.yblur);
+                Graphics.DrawMeshNow(quad, Matrix4x4.identity);
+                mat.SetTexture("_ReflectionTexture", yBlurTexture);
+            }
+
+            mat.SetTexture("_PreAccumulationTexture", rts[1]);
+            Graphics.SetRenderTarget(rts[0]);
+            mat.SetPass((int)Pass.accumulation);
             Graphics.DrawMeshNow(quad, Matrix4x4.identity);
-            mat.SetTexture("_ReflectionTexture", yBlurTexture);
+
+            mat.SetTexture("_AccumulationTexture", rts[0]);
+            Graphics.SetRenderTarget(dst);
+            Graphics.Blit(src, dst, mat, (int)Pass.composition);
+        }
+        else
+        {
+            Graphics.Blit(reflectionTexture, dst);
         }
 
-        mat.SetTexture("_PreAccumulationTexture", rts[1]);
-        Graphics.SetRenderTarget(rts[0]);
-        mat.SetPass((int)Pass.accumulation);
-        Graphics.DrawMeshNow(quad, Matrix4x4.identity);
 
-        mat.SetTexture("_AccumulationTexture", rts[0]);
-        Graphics.SetRenderTarget(dst);
-        Graphics.Blit(src, dst, mat, (int)Pass.composition);
 
         RenderTexture.ReleaseTemporary(reflectionTexture);
         RenderTexture.ReleaseTemporary(xBlurTexture);

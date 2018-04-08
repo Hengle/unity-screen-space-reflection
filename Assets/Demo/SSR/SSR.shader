@@ -110,17 +110,14 @@
 			float3 ref = reflect(cam, nor);
 
 			int lod = 0;
-			int calcTimes = 0;
-			float totalStep = 0;
+			int calc = 0;
 			float3 ray = pos;
 
 			[loop]
 			for (int n = 1; n <= _MaxLoop; n++)
 			{
 				float3 step = ref * _RayLenCoeff * (lod + 1);
-
 				ray += step * (1 + rand(uv + _Time.x) * (1 - smooth));
-				totalStep += step;
 
 				float4 rayScreen = mul(_ViewProj, float4(ray, 1.0));
 				float2 rayUV = rayScreen.xy / rayScreen.w * 0.5 + 0.5;
@@ -161,17 +158,19 @@
 					lod++;
 				}
 
-				calcTimes = n;
+				calc = n;
+                
+                if(length(ray - pos) > 15.0) break;
 			}
 
 			if (_ViewMode == 1) return float4((nor.xyz), 1);
 			if (_ViewMode == 2) return float4((ref.xyz), 1);
-			if (_ViewMode == 3) return float4(1, 1, 1, 1) * calcTimes / _MaxLoop;
+			if (_ViewMode == 3) return float4(1, 1, 1, 1) * calc / _MaxLoop;
 			if (_ViewMode == 4) return float4(1, 1, 1, 1) * tex2Dlod(_CameraDepthMipmap, float4(uv, 0, _MaxLOD));
 			if (_ViewMode == 5) return float4(tex2D(_CameraGBufferTexture0, uv).xyz, 1);
 			if (_ViewMode == 6) return float4(tex2D(_CameraGBufferTexture1, uv).xyz, 1);
-			if (_ViewMode == 7) return float4(0, tex2D(_CameraGBufferTexture0, uv).w, 0, 1);
-			if (_ViewMode == 8) return float4(0, tex2D(_CameraGBufferTexture1, uv).w, 0, 1);
+			if (_ViewMode == 7) return float4(1, 1, 1, 1) * tex2D(_CameraGBufferTexture0, uv).w;
+			if (_ViewMode == 8) return float4(1, 1, 1, 1) * tex2D(_CameraGBufferTexture1, uv).w;
 			if (_ViewMode == 9) return float4(tex2D(_CameraGBufferTexture3, uv).xyz, 1);
 
 			return (col * (1 - smooth) + refcol * smooth) * _ReflectionRate + col * (1 - _ReflectionRate);
@@ -183,23 +182,23 @@
 			float2 size = _ReflectionTexture_TexelSize;
 			float smooth = tex2D(_CameraGBufferTexture1, uv).w;
 
-			float weight[5] = { 0.22702703, 0.19459459, 0.12162162, 0.05405405, 0.01621622 };
-			float offset[5] = { 0.0, 1.0, 2.0, 3.0, 4.0 };
+            // compare depth
+            float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+            float depthR = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv + float2(1, 0) * size);
+            float depthL = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv - float2(1, 0) * size);
+            if (depth <= 0) return tex2D(_ReflectionTexture, uv);
 
-			float4 originalColor = tex2D(_ReflectionTexture, uv);
-			float4 blurredColor = tex2D(_ReflectionTexture, uv) * weight[0];
+            float weight[5] = { 0.22702703, 0.19459459, 0.12162162, 0.05405405, 0.01621622 };
+            float offset[5] = { 0.0, 1.0, 2.0, 3.0, 4.0 };
 
-			for (int j = 1; j < 5; ++j)
-			{
-				blurredColor += tex2D(_ReflectionTexture, uv + float2(offset[j], 0) * size) * weight[j];
-				blurredColor += tex2D(_ReflectionTexture, uv - float2(offset[j], 0) * size) * weight[j];
-			}
+            float4 originalColor = tex2D(_ReflectionTexture, uv);
+            float4 blurredColor = tex2D(_ReflectionTexture, uv) * weight[0];
 
-			float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
-			float depthR = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv + float2(1, 0) * size);
-			float depthL = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv - float2(1, 0) * size);
-
-			if (depth <= 0) return tex2D(_ReflectionTexture, uv);
+            for (int j = 1; j < 5; ++j)
+            {
+                blurredColor += tex2D(_ReflectionTexture, uv + float2(offset[j], 0) * size) * weight[j];
+                blurredColor += tex2D(_ReflectionTexture, uv - float2(offset[j], 0) * size) * weight[j];
+            }
 
 			float4 o = (abs(depthR - depthL) > _BlurThreshold) ? originalColor : blurredColor * smooth + originalColor * (1 - smooth);
 			return o;
@@ -211,22 +210,22 @@
 			float2 size = _ReflectionTexture_TexelSize;
 			float smooth = tex2D(_CameraGBufferTexture1, uv).w;
 
-			float weight[5] = { 0.22702703, 0.19459459, 0.12162162, 0.05405405, 0.01621622 };
-			float offset[5] = { 0.0, 1.0, 2.0, 3.0, 4.0 };
+            // compare depth
+            float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+            float depthT = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv + float2(0, 1) * size);
+            float depthB = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv - float2(0, 1) * size);
+            if (depth <= 0) return tex2D(_ReflectionTexture, uv);
 
-			float4 originalColor = tex2D(_ReflectionTexture, uv);
-			float4 blurredColor = tex2D(_ReflectionTexture, uv) * weight[0];
-			for (int j = 1; j < 5; ++j)
-			{
-				blurredColor += tex2D(_ReflectionTexture, uv + float2(0, offset[j]) * size) * weight[j];
-				blurredColor += tex2D(_ReflectionTexture, uv - float2(0, offset[j]) * size) * weight[j];
-			}
+            float weight[5] = { 0.22702703, 0.19459459, 0.12162162, 0.05405405, 0.01621622 };
+            float offset[5] = { 0.0, 1.0, 2.0, 3.0, 4.0 };
 
-			float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
-			float depthT = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv + float2(0, 1) * size);
-			float depthB = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv - float2(0, 1) * size);
-
-			if (depth <= 0) return tex2D(_ReflectionTexture, uv);
+            float4 originalColor = tex2D(_ReflectionTexture, uv);
+            float4 blurredColor = tex2D(_ReflectionTexture, uv) * weight[0];
+            for (int j = 1; j < 5; ++j)
+            {
+                blurredColor += tex2D(_ReflectionTexture, uv + float2(0, offset[j]) * size) * weight[j];
+                blurredColor += tex2D(_ReflectionTexture, uv - float2(0, offset[j]) * size) * weight[j];
+            }
 
 			float4 o = (abs(depthT - depthB) > _BlurThreshold) ? originalColor : blurredColor * smooth + originalColor * (1 - smooth);
 			return o;
