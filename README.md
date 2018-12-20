@@ -1,4 +1,4 @@
-# UnitySSR
+# USSR
 
 Unity base screen space reflection sample.
 
